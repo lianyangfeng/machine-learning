@@ -1,7 +1,9 @@
 from maze import Maze
 from robot import Robot
+from robot2 import Robot2
+from robot3 import Robot3
+import turtle
 import sys
-
 # global dictionaries for robot movement and sensing
 dir_sensors = {'u': ['l', 'u', 'r'], 'r': ['u', 'r', 'd'],
                'd': ['r', 'd', 'l'], 'l': ['d', 'l', 'u'],
@@ -11,22 +13,77 @@ dir_move = {'u': [0, 1], 'r': [1, 0], 'd': [0, -1], 'l': [-1, 0],
             'up': [0, 1], 'right': [1, 0], 'down': [0, -1], 'left': [-1, 0]}
 dir_reverse = {'u': 'd', 'r': 'l', 'd': 'u', 'l': 'r',
                'up': 'd', 'right': 'l', 'down': 'u', 'left': 'r'}
-
+dir_pen={'u':90,'l':180,'d':270,'r':0}
+dir_turn={-90:'left',0:'straight',90:'right'}
 # test and score parameters
 max_time = 1000
 train_score_mult = 1/30.
 
+
 if __name__ == '__main__':
     '''
-    This script tests a robot based on the code in robot.py on a maze given
-    as an argument when running the script.
+    This function uses Python's turtle library to draw a picture of the maze
+    given as an argument when running the script.
     '''
 
     # Create a maze based on input argument on command line.
     testmaze = Maze( str(sys.argv[1]) )
 
+    # Intialize the window and drawing turtle.
+    window = turtle.Screen()
+    wally = turtle.Turtle()
+    wally.speed(0)
+    wally.hideturtle()
+    wally.penup()
+    
+
+    # maze centered on (0,0), squares are 20 units in length.
+    sq_size = 20
+    origin = testmaze.dim * sq_size / -2
+
+    # iterate through squares one by one to decide where to draw walls
+    for x in range(testmaze.dim):
+        for y in range(testmaze.dim):
+            if not testmaze.is_permissible([x,y], 'up'):
+                wally.goto(origin + sq_size * x, origin + sq_size * (y+1))
+                wally.setheading(0)
+                wally.pendown()
+                wally.forward(sq_size)
+                wally.penup()
+
+            if not testmaze.is_permissible([x,y], 'right'):
+                wally.goto(origin + sq_size * (x+1), origin + sq_size * y)
+                wally.setheading(90)
+                wally.pendown()
+                wally.forward(sq_size)
+                wally.penup()
+
+            # only check bottom wall if on lowest row
+            if y == 0 and not testmaze.is_permissible([x,y], 'down'):
+                wally.goto(origin + sq_size * x, origin)
+                wally.setheading(0)
+                wally.pendown()
+                wally.forward(sq_size)
+                wally.penup()
+
+            # only check left wall if on leftmost column
+            if x == 0 and not testmaze.is_permissible([x,y], 'left'):
+                wally.goto(origin, origin + sq_size * y)
+                wally.setheading(90)
+                wally.pendown()
+                wally.forward(sq_size)
+                wally.penup()
+#   
+    wally.width(5)
+    '''
+    This script tests a robot based on the code in robot.py on a maze given
+    as an argument when running the script.
+    '''
+
     # Intitialize a robot; robot receives info about maze dimensions.
-    testrobot = Robot(testmaze.dim)
+    testrobot = Robot3(testmaze.dim)
+    if testrobot.steering!=None:
+        wally.speed(3)
 
     # Record robot performance over two runs.
     runtimes = []
@@ -36,7 +93,7 @@ if __name__ == '__main__':
 
         # Set the robot in the start position. Note that robot position
         # parameters are independent of the robot itself.
-        robot_pos = {'location': [0, 0], 'heading': 'up'}
+        robot_pos = {'location': [0, 0], 'heading': 'u'}
 
         run_active = True
         hit_goal = False
@@ -66,6 +123,8 @@ if __name__ == '__main__':
                 else:
                     print "Cannot reset on runs after the first."
                     continue
+            #print the steering sequent.
+            print 'The robot goes {} {} steps.'.format(dir_turn[rotation],movement)
 
             # perform rotation
             if rotation == -90:
@@ -84,9 +143,21 @@ if __name__ == '__main__':
             while movement:
                 if movement > 0:
                     if testmaze.is_permissible(robot_pos['location'], robot_pos['heading']):
+                        wally.pencolor('red')
+                        wally.goto(origin + sq_size * (robot_pos['location'][0]+0.5), origin + sq_size * (robot_pos['location'][1]+0.5)) #draw red
+                        wally.setheading(dir_pen[robot_pos['heading']])
+                        wally.pendown()
+                        wally.forward(sq_size)
+                        wally.penup()
                         robot_pos['location'][0] += dir_move[robot_pos['heading']][0]
                         robot_pos['location'][1] += dir_move[robot_pos['heading']][1]
                         movement -= 1
+                        wally.goto(origin + sq_size * (robot_pos['location'][0]+0.5), origin + sq_size * (robot_pos['location'][1]+0.5)) #draw red
+                        wally.pencolor('blue')                        
+                        wally.setheading(dir_pen[dir_reverse[robot_pos['heading']]])
+                        wally.pendown()
+                        wally.forward(sq_size)
+                        wally.penup()
                     else:
                         print "Movement stopped by wall."
                         movement = 0
@@ -108,7 +179,9 @@ if __name__ == '__main__':
                     runtimes.append(total_time - sum(runtimes))
                     run_active = False
                     print "Goal found; run {} completed!".format(run)
-
+            
     # Report score if robot is successful.
     if len(runtimes) == 2:
         print "Task complete! Score: {:4.3f}".format(runtimes[1] + train_score_mult*runtimes[0])
+        
+    window.exitonclick()

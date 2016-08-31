@@ -1,30 +1,23 @@
 import numpy as np
 from copy import deepcopy
-#dir_sensors is used to enquire the orientations of three sensors corresponding
-#orientation of robot's heading.
+
 dir_sensors = {'u': ['l', 'u', 'r'], 'r': ['u', 'r', 'd'],
                'd': ['r', 'd', 'l'], 'l': ['d', 'l', 'u'],
                'up': ['l', 'u', 'r'], 'right': ['u', 'r', 'd'],
                'down': ['r', 'd', 'l'], 'left': ['d', 'l', 'u']}
-#dir_move is use to translate the orientation string to axis value list.             
 dir_move = {'u': [0, 1], 'r': [1, 0], 'd': [0, -1], 'l': [-1, 0],
             'up': [0, 1], 'right': [1, 0], 'down': [0, -1], 'left': [-1, 0]}
-#dir_reverse is used to get the reverse orientation
 dir_reverse = {'u': 'd', 'r': 'l', 'd': 'u', 'l': 'r',
                'up': 'd', 'right': 'l', 'down': 'u', 'left': 'r'}
-#dir_compare is used to get the rotation. 
 dir_compare ={'uu':'u','ur':'r','ru':'l','ud':'b',
               'll':'u','lu':'r','ul':'l','du':'b',
               'rr':'u','dl':'r','ld':'l','lr':'b',
               'dd':'u','rd':'r','dr':'l','rl':'b',}
-#dir_value is used to get the value of every point of maze data corresponding to the orientation.
 dir_value={'u':1,'r':2,'d':4,'l':8}
-#dir_heading is used to translate axis values to orientation string.
 dir_heading={(0,1):'u',(1,0):'r',(0,-1):'d',(-1,0):'l'}
-#dir_rotation is used to translate rotation string to values.
 dir_rotation={'l':-90,'u':0,'r':90}
 
-class Robot(object):
+class Robot3(object):
     def __init__(self, maze_dim):
         '''
         Use the initialization function to set up attributes that your robot
@@ -72,7 +65,7 @@ class Robot(object):
             return self.steering[self.i][0],self.steering[self.i][1]
                 
         #here the robot finished exploring the whole maze
-        if self.location==[0,0] and self.heading=='d':
+        if manhattan_dist_to_goal(self.location,self.goal_bounds)==0:
             rotation='Reset'
             movement='Reset'
             self.location = [0, 0]
@@ -107,8 +100,8 @@ class Robot(object):
                         need_create=False
                         break
                 if need_create:
-                    temp_junction=Junction_3(self.location,dir_reverse[self.heading],passable)
-                    operation=dir_compare[self.heading+temp_junction.right_branch]
+                    temp_junction=Junction_3(self.location,dir_reverse[self.heading],passable,self.goal_bounds)
+                    operation=dir_compare[self.heading+temp_junction.first_branch]
                     self.junctions.append(temp_junction)
                 if operation=='l':
                     self.turn_left()
@@ -126,8 +119,8 @@ class Robot(object):
                         operation=junction.direct(dir_reverse[self.heading])
                         need_create=False
                 if need_create:
-                    temp_junction=Junction_4(self.location,dir_reverse[self.heading])
-                    operation=dir_compare[self.heading+temp_junction.right_branch]
+                    temp_junction=Junction_4(self.location,dir_reverse[self.heading],self.goal_bounds)
+                    operation=dir_compare[self.heading+temp_junction.first_branch]
                     self.junctions.append(temp_junction)
                 if operation=='l':
                     self.turn_left()
@@ -171,7 +164,6 @@ class Robot(object):
     def go_forward(self):
         self.movement=1
         self.rotation=0
-    #get the point value by the given heading and passable data.
     def to_point_value(self,heading,passable):
         orientations=dir_sensors[heading][:]
         orientations.append(dir_reverse[heading])
@@ -184,69 +176,88 @@ class Robot(object):
         return value
     
     
-class Junction_3(object):
-    def __init__(self,location,come_from,passable):
+class Junction_3:
+    def __init__(self,location,come_from,passable,goal_bounds):
         self.location=location[:]
         self.come_from=come_from
         orientations=dir_sensors[dir_reverse[come_from]][:]
-        if passable[0]==False:
-            self.left_branch=orientations[1]
-            self.right_branch=orientations[2]
-        if passable[1]==False:
-            self.left_branch=orientations[0]
-            self.right_branch=orientations[2]
-        if passable[2]==False:
-            self.left_branch=orientations[0]
-            self.right_branch=orientations[1]
-        self.left_branch_visited=False
+        for i in range(len(orientations)):
+            if passable[i]==False:
+                orientations.pop(i)
+        best_path=point_to_goal(self.location,goal_bounds,orientations)
+        best_path_index=orientations.index(best_path)
+        self.first_branch=best_path
+        self.second_branch=orientations.pop(best_path_index)[0]
+        self.second_branch_visited=False
     def direct(self,oncoming):
         operation=''
-        if oncoming==self.right_branch:
-            if self.left_branch_visited:
+        if oncoming==self.first_branch:
+            if self.second_branch_visited:
                 operation=dir_compare[dir_reverse[oncoming]+self.come_from]
             else:
-                operation=dir_compare[dir_reverse[oncoming]+self.left_branch]
-                self.left_branch_visited=True
-        elif oncoming==self.left_branch:
-            if self.left_branch_visited:
+                operation=dir_compare[dir_reverse[oncoming]+self.second_branch]
+                self.second_branch_visited=True
+        elif oncoming==self.second_branch:
+            if self.second_branch_visited:
                 operation=dir_compare[dir_reverse[oncoming]+self.come_from]
             else:
                 operation='b'
-                self.left_branch_visited=True
+                self.second_branch_visited=True
+#        elif oncoming==self.come_from:
+ #           operation='b'
+
         return operation
+#use the branches location and goal bounds data to point a better branch.
+def point_to_goal(location,goal_bounds,branch_orientations):
+    x,y=0,0
+    if location[0]<=goal_bounds[0]:
+        x=goal_bounds[0]-location[0]
+    else:
+        x=goal_bounds[1]-location[0]
+    if location[1]<=goal_bounds[0]:
+        y=goal_bounds[0]-location[1]
+    else:
+        y=goal_bounds[1]-location[1]
+    best=max(branch_orientations,key=lambda o:dir_move[o][0]*x+dir_move[o][1]*y)
+    return best
         
-class Junction_4(object):
-    def __init__(self,location,come_from):
+class Junction_4:
+    def __init__(self,location,come_from,goal_bounds):
         self.location=location[:]
         self.come_from=come_from
         orientations=dir_sensors[dir_reverse[come_from]][:]
-        self.left_branch=orientations[0]
-        self.forward_branch=orientations[1]
-        self.right_branch=orientations[2]
-        self.left_branch_visited=False
-        self.forward_branch_visited=False
+        best_path=point_to_goal(self.location,goal_bounds,orientations)
+        best_path_index=orientations.index(best_path)
+        self.first_branch=best_path
+        orientations.pop(best_path_index)
+        best_path=point_to_goal(self.location,goal_bounds,orientations)
+        best_path_index=orientations.index(best_path)
+        self.second_branch=best_path
+        self.third_branch=orientations.pop(best_path_index)[0]
+        self.second_branch_visited=False
+        self.third_branch_visited=False
         self.mode=None
     def direct(self,oncoming):
         operation=''
-        if oncoming==self.right_branch:
+        if oncoming==self.first_branch:
             if self.mode==None:
                 self.mode=1
-                operation=dir_compare[dir_reverse[oncoming]+self.forward_branch]
-                self.forward_branch_visited=True                
+                operation=dir_compare[dir_reverse[oncoming]+self.second_branch]
+                self.second_branch_visited=True                
             elif self.mode==2:
                 operation=dir_compare[dir_reverse[oncoming]+self.come_from]                
-        elif oncoming==self.forward_branch:
+        elif oncoming==self.second_branch:
             if self.mode==None:
                 self.mode=2
-                operation='r'
-                self.left_branch_visited=True
-                self.forward_branch_visited=True
+                operation=dir_compare[dir_reverse[oncoming]+self.third_branch]
+                self.second_branch_visited=True
+                self.third_branch_visited=True
             elif self.mode==1:
-                if self.left_branch_visited:
-                    operation='u'
+                if self.third_branch_visited:
+                    operation=dir_compare[dir_reverse[oncoming]+self.come_from]
                 else:
-                    operation='r'
-                    self.left_branch_visited=True
+                    operation=dir_compare[dir_reverse[oncoming]+self.third_branch]
+                    self.third_branch_visited=True
             elif self.mode==2:
                 operation='r'            
         elif oncoming==self.left_branch:
@@ -313,6 +324,7 @@ def a_star(maze_data):
             # the start node does not have a parent
             path.append(current)
             return path[::-1]
+
         open_set.remove(current)
         closed_set.add(current)
         for neighbor in current.neighbors: #here neighbor is position data,not Point object
@@ -347,6 +359,7 @@ def manhattan_dist_to_goal(location,goal_bounds):
     else:
         y=location[1]-goal_bounds[1]
     return x+y
+
 #calculte how many more straight steps has been taken since counting start.
 def straight_step_num(point):
     i=0

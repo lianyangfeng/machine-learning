@@ -17,6 +17,7 @@ if __name__ == '__main__':
     wally.speed(0)
     wally.hideturtle()
     wally.penup()
+    
 
     # maze centered on (0,0), squares are 20 units in length.
     sq_size = 20
@@ -31,6 +32,15 @@ if __name__ == '__main__':
                 wally.pendown()
                 wally.forward(sq_size)
                 wally.penup()
+#            elif y<testmaze.dim-1:
+#                wally.pencolor('red')
+#                wally.goto(origin + sq_size * (x+0.5), origin + sq_size * (y+0.5))
+#                wally.setheading(90)
+#                wally.pendown()
+#                wally.forward(sq_size)
+#                wally.penup()
+#                wally.pencolor('black')
+
 
             if not testmaze.is_permissible([x,y], 'right'):
                 wally.goto(origin + sq_size * (x+1), origin + sq_size * y)
@@ -38,6 +48,14 @@ if __name__ == '__main__':
                 wally.pendown()
                 wally.forward(sq_size)
                 wally.penup()
+#            elif x<testmaze.dim-1:
+#                wally.pencolor('red')
+#                wally.goto(origin + sq_size * (x+0.5), origin + sq_size * (y+0.5))
+#                wally.setheading(0)
+#                wally.pendown()
+#                wally.forward(sq_size)
+#                wally.penup()
+#                wally.pencolor('black')
 
             # only check bottom wall if on lowest row
             if y == 0 and not testmaze.is_permissible([x,y], 'down'):
@@ -54,5 +72,4 @@ if __name__ == '__main__':
                 wally.pendown()
                 wally.forward(sq_size)
                 wally.penup()
-
     window.exitonclick()
